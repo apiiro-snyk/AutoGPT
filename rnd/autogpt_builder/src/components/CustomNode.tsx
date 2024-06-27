@@ -83,6 +83,23 @@ const CustomNode: FC<NodeProps> = ({ data, id }) => {
     setActiveKey(null);
   };
 
+  const addArrayItem = (key: string) => {
+    const currentValues = data.hardcodedValues[key] || [];
+    handleInputChange(key, [...currentValues, '']);
+  };
+
+  const removeArrayItem = (key: string, index: number) => {
+    const currentValues = data.hardcodedValues[key] || [];
+    currentValues.splice(index, 1);
+    handleInputChange(key, [...currentValues]);
+  };
+
+  const handleArrayItemChange = (key: string, index: number, value: string) => {
+    const currentValues = data.hardcodedValues[key] || [];
+    currentValues[index] = value;
+    handleInputChange(key, [...currentValues]);
+  };
+
   const renderInputField = (key: string, schema: any) => {
     switch (schema.type) {
       case 'string':
@@ -143,20 +160,26 @@ const CustomNode: FC<NodeProps> = ({ data, id }) => {
           </div>
         );
       case 'array':
-        if (schema.items && schema.items.type === 'string' && schema.items.enum) {
+        if (schema.items && schema.items.type === 'string') {
+          const arrayValues = data.hardcodedValues[key] || [];
           return (
             <div key={key} className="input-container">
-              <select
-                value={data.hardcodedValues[key] || ''}
-                onChange={(e) => handleInputChange(key, e.target.value)}
-                className="select-input"
-              >
-                {schema.items.enum.map((option: string) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+              {arrayValues.map((item: string, index: number) => (
+                <div key={`${key}-${index}`} className="array-item-container">
+                  <input
+                    type="text"
+                    value={item}
+                    onChange={(e) => handleArrayItemChange(key, index, e.target.value)}
+                    className="array-item-input"
+                  />
+                  <button onClick={() => removeArrayItem(key, index)} className="array-item-remove">
+                    &times;
+                  </button>
+                </div>
+              ))}
+              <button onClick={() => addArrayItem(key)} className="array-item-add">
+                Add Item
+              </button>
             </div>
           );
         }
