@@ -15,6 +15,7 @@ const CustomNode: FC<NodeProps> = ({ data, id }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [modalValue, setModalValue] = useState<string>('');
+  const [errors, setErrors] = useState<{ [key: string]: string | null }>({});
 
   useEffect(() => {
     if (data.output_data || data.status) {
@@ -60,6 +61,38 @@ const CustomNode: FC<NodeProps> = ({ data, id }) => {
   const handleInputChange = (key: string, value: any) => {
     const newValues = { ...data.hardcodedValues, [key]: value };
     data.setHardcodedValues(newValues);
+    setErrors((prevErrors) => ({ ...prevErrors, [key]: null }));
+  };
+
+  const validateInput = (key: string, value: any, schema: any) => {
+    switch (schema.type) {
+      case 'string':
+        if (schema.enum && !schema.enum.includes(value)) {
+          return `Invalid value for ${key}`;
+        }
+        break;
+      case 'boolean':
+        if (typeof value !== 'boolean') {
+          return `Invalid value for ${key}`;
+        }
+        break;
+      case 'number':
+        if (typeof value !== 'number') {
+          return `Invalid value for ${key}`;
+        }
+        break;
+      case 'array':
+        if (!Array.isArray(value) || value.some((item: any) => typeof item !== 'string')) {
+          return `Invalid value for ${key}`;
+        }
+        if (schema.minItems && value.length < schema.minItems) {
+          return `${key} requires at least ${schema.minItems} items`;
+        }
+        break;
+      default:
+        return null;
+    }
+    return null;
   };
 
   const isHandleConnected = (key: string) => {
@@ -101,6 +134,7 @@ const CustomNode: FC<NodeProps> = ({ data, id }) => {
   };
 
   const renderInputField = (key: string, schema: any) => {
+    const error = errors[key];
     switch (schema.type) {
       case 'string':
         return schema.enum ? (
@@ -116,12 +150,14 @@ const CustomNode: FC<NodeProps> = ({ data, id }) => {
                 </option>
               ))}
             </select>
+            {error && <span className="error-message">{error}</span>}
           </div>
         ) : (
           <div key={key} className="input-container">
             <div className="clickable-input" onClick={() => handleInputClick(key)}>
               {data.hardcodedValues[key] || `Enter ${key}`}
             </div>
+            {error && <span className="error-message">{error}</span>}
           </div>
         );
       case 'boolean':
@@ -145,9 +181,9 @@ const CustomNode: FC<NodeProps> = ({ data, id }) => {
               />
               False
             </label>
+            {error && <span className="error-message">{error}</span>}
           </div>
         );
-      case 'integer':
       case 'number':
         return (
           <div key={key} className="input-container">
@@ -157,6 +193,7 @@ const CustomNode: FC<NodeProps> = ({ data, id }) => {
               onChange={(e) => handleInputChange(key, parseFloat(e.target.value))}
               className="number-input"
             />
+            {error && <span className="error-message">{error}</span>}
           </div>
         );
       case 'array':
@@ -180,12 +217,36 @@ const CustomNode: FC<NodeProps> = ({ data, id }) => {
               <button onClick={() => addArrayItem(key)} className="array-item-add">
                 Add Item
               </button>
+              {error && <span className="error-message">{error}</span>}
             </div>
           );
         }
         return null;
       default:
         return null;
+    }
+  };
+
+  const validateInputs = () => {
+    const newErrors: { [key: string]: string | null } = {};
+    Object.keys(data.inputSchema.properties).forEach((key) => {
+      const value = data.hardcodedValues[key];
+      const schema = data.inputSchema.properties[key];
+      const error = validateInput(key, value, schema);
+      if (error) {
+        newErrors[key] = error;
+      }
+    });
+    setErrors(newErrors);
+    return Object.values(newErrors).every((error) => error === null);
+  };
+
+  const handleSubmit = () => {
+    if (validateInputs()) {
+      // Do something with valid data
+      console.log("Valid data:", data.hardcodedValues);
+    } else {
+      console.log("Invalid data:", errors);
     }
   };
 
@@ -234,6 +295,7 @@ const CustomNode: FC<NodeProps> = ({ data, id }) => {
           </p>
         </div>
       )}
+      <button onClick={handleSubmit}>Submit</button>
       <ModalComponent
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
